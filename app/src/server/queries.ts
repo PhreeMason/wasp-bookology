@@ -1,9 +1,21 @@
-import { type DailyStats, type GptResponse, type User, type PageViewSource, type Task, type File } from 'wasp/entities';
+import { 
+  type DailyStats, 
+  type GptResponse, 
+  type User, 
+  type PageViewSource, 
+  type Task, 
+  type File, 
+  type Book, 
+  type Trope, 
+  type TropesOfBook,
+  type GenresOfBook
+} from 'wasp/entities';
 import { HttpError } from 'wasp/server';
 import {
   type GetGptResponses,
   type GetDailyStats,
   type GetPaginatedUsers,
+  type GetPaginatedBooks,
   type GetAllTasksByUser,
   type GetAllFilesByUser,
   type GetDownloadFileSignedURL,
@@ -161,6 +173,64 @@ export const getPaginatedUsers: GetPaginatedUsers<GetPaginatedUsersInput, GetPag
 
   return {
     users: queryResults,
+    totalPages,
+  };
+};
+
+type GetPaginatedBooksOutput = {
+  books: Book[];
+  totalPages: number;
+};
+
+type GetPaginatedBooksInput = {
+  skip: number;
+  cursor?: number | undefined;
+  tropes?: TropesOfBook[];
+  genres?: GenresOfBook[];
+  titleContains?: string;
+  authorContains?: string;
+};
+
+export const getPaginatedBooks: GetPaginatedBooks <GetPaginatedBooksInput, GetPaginatedBooksOutput> = async (
+  args,
+  context
+) => {
+  const queryResults = await context.entities.Book.findMany({
+    skip: args.skip,
+    take: 10,
+    where: {
+      title: {
+        contains: args.titleContains || undefined,
+        mode: 'insensitive',
+      },
+      author: {
+        contains: args.authorContains || undefined,
+        mode: 'insensitive',
+      },
+    },
+    include: {
+      tropes: true,
+      genres: true
+    },
+    orderBy: {
+      id: 'desc',
+    },
+  });
+
+  const totalBookCount = await context.entities.Book.count({
+    where: {
+      title: {
+        contains: args.titleContains || undefined,
+      },
+      author: {
+        contains: args.authorContains || undefined,
+      },
+    },
+  });
+  const totalPages = Math.ceil(totalBookCount / 10);
+
+  return {
+    books: queryResults,
     totalPages,
   };
 };
